@@ -5,126 +5,88 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {StatusBar, StyleSheet, useColorScheme, View} from 'react-native';
+import SplashScreen from './components/SplashScreen';
+import VideoUploader from './components/VideoUploader';
+import ProcessingStatus from './components/ProcessingStatus';
+import TextDisplay from './components/TextDisplay';
+import axios from 'axios';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const App = () => {
+  const [isSplashVisible, setSplashVisible] = useState(true);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [summary, setSummary] = useState('');
+  const [isProcessing, setProcessing] = useState(false);
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashVisible(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
+  const handleVideoSelect = (uri: string) => {
+    setVideoUri(uri);
+    setProcessing(true);
+    uploadVideo(uri);
+  };
+
+  const uploadVideo = async (uri: string) => {
+    const formData = new FormData();
+    formData.append('video', {
+      uri,
+      type: 'video/mp4',
+      name: 'video.mp4',
+    });
+
+    try {
+      const response = await axios.post(
+        'http://10.0.2.2:5000/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
           },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+        },
+      );
+      setSummary(response.data.summary);
+    } catch (error) {
+      console.error('Error uploading video:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+    backgroundColor: isDarkMode ? '#333' : '#fff',
   };
 
-  /*
-   * To keep the template simple and small we're adding padding to prevent view
-   * from rendering under the System UI.
-   * For bigger apps the recommendation is to use `react-native-safe-area-context`:
-   * https://github.com/AppAndFlow/react-native-safe-area-context
-   *
-   * You can read more about it here:
-   * https://github.com/react-native-community/discussions-and-proposals/discussions/827
-   */
-  const safePadding = '5%';
+  if (isSplashVisible) {
+    return <SplashScreen />;
+  }
 
   return (
-    <View style={backgroundStyle}>
+    <View style={styles.container}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <ScrollView
-        style={backgroundStyle}>
-        <View style={{paddingRight: safePadding}}>
-          <Header/>
-        </View>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            paddingHorizontal: safePadding,
-            paddingBottom: safePadding,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      {!videoUri && !isProcessing && !summary && (
+        <VideoUploader onVideoSelect={handleVideoSelect} />
+      )}
+      {isProcessing && <ProcessingStatus />}
+      {summary && <TextDisplay summary={summary} />}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
 });
 
